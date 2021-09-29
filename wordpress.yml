@@ -1,0 +1,51 @@
+---
+- hosts: prod
+  become: yes
+  vars_files:
+    - files/secrets/credentials.yml
+  vars: 
+    ansible_python_interpreter: /usr/bin/python3
+
+  tasks:
+    - name: Install Pip docker-py
+      pip:
+        name: "docker-py"
+        executable: "/usr/bin/pip3"
+    - name: Create a network with options
+      docker_network:
+        name: wordpress-net
+        driver: bridge
+        driver_options:
+          subnet: "11.0.0.0/24"
+    - name: Create mysql container
+      docker_container:
+        name: "mysql"
+        image: "mysql:5.7"
+        state: "started"
+        recreate: yes
+        networks: 
+          - name: wordpress-net
+        env: 
+          MYSQL_ROOT_PASSWORD: "root"
+          MYSQL_DATABASE: "wordpress"
+          MYSQL_USER: "wordpress"
+          MYSQL_PASSWORD: "toto"
+        volumes:
+          - db_data:/var/lib/mysql
+    - name: Create wordpress container
+      docker_container:
+        name: "wordpress"
+        networks: 
+          - name: wordpress-net
+        image: "wordpress"
+        state: started
+        env:
+          WORDPRESS_DB_HOST: "mysql"
+          WORDPRESS_DB_USER: "wordpress"
+          WORDPRESS_DB_PASSWORD: "toto"
+          WORDPRESS_DB_NAME: "wordpress"
+        recreate: yes
+        volumes:
+          - wordpress:/var/www/html
+        ports:
+          - "80:80"
